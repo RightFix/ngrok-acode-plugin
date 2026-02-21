@@ -97,8 +97,6 @@ class NgrokPlugin {
   }
 
   async installNgrok() {
-    let loader = null;
-    
     try {
       const checkResult = await Executor.execute('which ngrok', true);
       if (checkResult && checkResult.includes('/ngrok')) {
@@ -106,23 +104,21 @@ class NgrokPlugin {
         return;
       }
 
-      loader = acode.loader('Installing ngrok...', 'Please wait');
-      loader.show();
+      const terminal = acode.require('terminal');
+      if (!terminal || !terminal.create) {
+        alert('Error', 'Terminal not available');
+        return;
+      }
 
-      await Executor.execute('rm -f /usr/bin/ngrok', true);
-      await Executor.execute('apk update', true);
-      await Executor.execute('apk add wget unzip', true);
-      await Executor.execute('wget https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-arm64.zip -O /tmp/ngrok.zip', true);
-      await Executor.execute('unzip -o /tmp/ngrok.zip -d /tmp/', true);
-      await Executor.execute('rm /tmp/ngrok.zip', true);
-      await Executor.execute('mv /tmp/ngrok /usr/bin/ngrok', true);
-      await Executor.execute('chmod +x /usr/bin/ngrok', true);
-
-      loader.hide();
-      alert('Success!', 'Ngrok installed successfully!\n\nRun: ngrok <port>\nConfigure: ngrok config add-authtoken <token>');
+      const term = terminal.create();
+      
+      const installCmd = 'rm -f /usr/bin/ngrok && apk update && apk add wget unzip && wget https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-arm64.zip -O /tmp/ngrok.zip && unzip -o /tmp/ngrok.zip -d /tmp/ && rm /tmp/ngrok.zip && mv /tmp/ngrok /usr/bin/ngrok && chmod +x /usr/bin/ngrok && echo "Ngrok installed successfully!"';
+      
+      setTimeout(() => {
+        terminal.write(term.id, installCmd + '\n');
+      }, 1000);
     } catch (error) {
-      if (loader) loader.hide();
-      alert('Installation Failed', String(error) || 'An error occurred during installation.');
+      alert('Error', String(error));
     }
   }
 
