@@ -1,6 +1,6 @@
 import plugin from '../plugin.json';
 
-const NGROK_BIN = '/usr/bin/ngrok';
+const NGROK_BIN = '$HOME/bin/ngrok';
 
 let alert, prompt, confirm, select;
 
@@ -99,7 +99,7 @@ class NgrokPlugin {
   async installNgrok() {
     try {
       const checkResult = await Executor.execute('which ngrok', true);
-      if (checkResult && checkResult.includes('/ngrok')) {
+      if (checkResult && checkResult.includes('ngrok')) {
         alert('Already Installed', 'Ngrok is already installed! Use "Check version" to verify.');
         return;
       }
@@ -112,7 +112,7 @@ class NgrokPlugin {
 
       const term = terminal.create();
       
-      const installCmd = 'rm -f /usr/bin/ngrok && apk update && apk add wget unzip && wget https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-arm64.zip -O /tmp/ngrok.zip && unzip -o /tmp/ngrok.zip -d /tmp/ && rm /tmp/ngrok.zip && mv /tmp/ngrok /usr/bin/ngrok && chmod +x /usr/bin/ngrok && echo "Ngrok installed successfully!"';
+      const installCmd = 'mkdir -p $HOME/bin && apk update && apk add wget unzip && wget https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-arm64.zip -O /tmp/ngrok.zip && unzip -o /tmp/ngrok.zip -d /tmp/ && rm /tmp/ngrok.zip && mv /tmp/ngrok $HOME/bin/ngrok && chmod +x $HOME/bin/ngrok && export PATH=$HOME/bin:$PATH && echo "Ngrok installed to $HOME/bin/ngrok"';
       
       setTimeout(() => {
         terminal.write(term.id, installCmd + '\n');
@@ -133,12 +133,6 @@ class NgrokPlugin {
     if (!port) return;
 
     try {
-      const checkResult = await Executor.execute('which ngrok', true);
-      if (!checkResult || !checkResult.includes('/ngrok')) {
-        alert('Not Found', 'Please install ngrok first.');
-        return;
-      }
-
       const terminal = acode.require('terminal');
       if (!terminal || !terminal.create) {
         alert('Error', 'Terminal not available');
@@ -146,17 +140,9 @@ class NgrokPlugin {
       }
 
       const term = terminal.create();
-      if (!term || !term.id) {
-        alert('Error', 'Failed to create terminal');
-        return;
-      }
       
       setTimeout(() => {
-        try {
-          terminal.write(term.id, `ngrok ${port}\n`);
-        } catch (e) {
-          alert('Error', 'Failed to write to terminal: ' + String(e));
-        }
+        terminal.write(term.id, `export PATH=$HOME/bin:$PATH && ngrok ${port}\n`);
       }, 1000);
     } catch (error) {
       alert('Error', String(error));
@@ -165,16 +151,10 @@ class NgrokPlugin {
 
   async checkVersion() {
     try {
-      const checkResult = await Executor.execute('which ngrok', true);
-      if (!checkResult || !checkResult.includes('/ngrok')) {
-        alert('Not Found', 'Please install ngrok first.');
-        return;
-      }
-
-      const version = await Executor.execute('ngrok version', true);
+      const version = await Executor.execute('export PATH=$HOME/bin:$PATH && ngrok version', true);
       alert('Ngrok Version', version || 'Unable to get version');
     } catch (error) {
-      alert('Error', String(error) || 'Failed to check version');
+      alert('Error', String(error) || 'Failed to check version. Is ngrok installed?');
     }
   }
 
@@ -189,13 +169,7 @@ class NgrokPlugin {
     if (!token) return;
 
     try {
-      const checkResult = await Executor.execute('which ngrok', true);
-      if (!checkResult || !checkResult.includes('/ngrok')) {
-        alert('Not Found', 'Please install ngrok first.');
-        return;
-      }
-
-      const result = await Executor.execute(`ngrok config add-authtoken ${token}`, true);
+      const result = await Executor.execute(`export PATH=$HOME/bin:$PATH && ngrok config add-authtoken ${token}`, true);
       alert('Configuration Result', result || 'Authtoken configured successfully!');
     } catch (error) {
       alert('Error', String(error) || 'Failed to configure authtoken');
@@ -213,7 +187,7 @@ class NgrokPlugin {
     if (!confirmed) return;
 
     try {
-      await Executor.execute(`rm -f ${NGROK_BIN}`, true);
+      await Executor.execute('rm -f $HOME/bin/ngrok', true);
       alert('Success', 'Ngrok has been uninstalled.');
     } catch (error) {
       alert('Error', String(error) || 'Failed to uninstall ngrok');
