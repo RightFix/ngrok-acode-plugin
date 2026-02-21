@@ -1,8 +1,10 @@
 import plugin from '../plugin.json';
 
 const NGROK_URL = 'https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-arm64.zip';
-const NGROK_BIN = '/data/data/com.foxdebug.acode/files/alpine/usr/local/bin/ngrok';
+const NGROK_BIN = '/usr/local/bin/ngrok';
 const TEMP_ZIP = '/tmp/ngrok.zip';
+
+let alert, prompt, confirm, select;
 
 class NgrokPlugin {
   baseUrl = '';
@@ -12,6 +14,11 @@ class NgrokPlugin {
     this.cacheFile = cacheFile;
     this.cacheFileUrl = cacheFileUrl;
 
+    alert = acode.require('alert');
+    prompt = acode.require('prompt');
+    confirm = acode.require('confirm');
+    select = acode.require('select');
+
     this.registerCommands();
   }
 
@@ -19,8 +26,38 @@ class NgrokPlugin {
     const { commands } = editorManager.editor;
 
     commands.addCommand({
+      name: 'ngrok-install',
+      description: 'Ngrok: Install',
+      exec: () => this.installNgrok(),
+    });
+
+    commands.addCommand({
+      name: 'ngrok-run',
+      description: 'Ngrok: Run HTTP Tunnel',
+      exec: () => this.runNgrok(),
+    });
+
+    commands.addCommand({
+      name: 'ngrok-version',
+      description: 'Ngrok: Check Version',
+      exec: () => this.checkVersion(),
+    });
+
+    commands.addCommand({
+      name: 'ngrok-config',
+      description: 'Ngrok: Configure Authtoken',
+      exec: () => this.configureNgrok(),
+    });
+
+    commands.addCommand({
+      name: 'ngrok-uninstall',
+      description: 'Ngrok: Uninstall',
+      exec: () => this.uninstallNgrok(),
+    });
+
+    commands.addCommand({
       name: 'ngrok-menu',
-      description: 'Open Ngrok menu',
+      description: 'Ngrok: Show Menu',
       exec: () => this.showNgrokMenu(),
     });
   }
@@ -28,24 +65,32 @@ class NgrokPlugin {
   async showNgrokMenu() {
     const options = [
       'Install ngrok',
-      'Run ngrok http 80',
+      'Run ngrok http',
       'Check version',
       'Configure authtoken',
       'Uninstall ngrok',
     ];
 
-    const action = await acode.prompt('Ngrok Options', '', 'select', options);
+    const action = await select('Ngrok Menu', options);
     
-    if (action === 'Install ngrok') {
-      await this.installNgrok();
-    } else if (action === 'Run ngrok http 80') {
-      await this.runNgrok('80');
-    } else if (action === 'Check version') {
-      await this.checkVersion();
-    } else if (action === 'Configure authtoken') {
-      await this.configureNgrok();
-    } else if (action === 'Uninstall ngrok') {
-      await this.uninstallNgrok();
+    if (!action) return;
+
+    switch (action) {
+      case 'Install ngrok':
+        await this.installNgrok();
+        break;
+      case 'Run ngrok http':
+        await this.runNgrok();
+        break;
+      case 'Check version':
+        await this.checkVersion();
+        break;
+      case 'Configure authtoken':
+        await this.configureNgrok();
+        break;
+      case 'Uninstall ngrok':
+        await this.uninstallNgrok();
+        break;
     }
   }
 
@@ -58,13 +103,11 @@ class NgrokPlugin {
       const checkResult = await Executor.execute('which ngrok', true);
       if (checkResult.includes('ngrok')) {
         loader.hide();
-        acode.alert('Ngrok is already installed!', 'Use "Check version" to verify.');
+        alert('Already Installed', 'Ngrok is already installed! Use "Check version" to verify.');
         return;
       }
 
-      await Executor.execute('apk update', true);
-      await Executor.execute('apk add wget unzip', true);
-
+      await Executor.execute('apk update && apk add wget unzip', true);
       await Executor.execute(`wget ${NGROK_URL} -O ${TEMP_ZIP}`, true);
       await Executor.execute(`unzip -o ${TEMP_ZIP} -d /tmp/`, true);
       await Executor.execute(`mv /tmp/ngrok ${NGROK_BIN}`, true);
@@ -72,34 +115,34 @@ class NgrokPlugin {
       await Executor.execute(`rm ${TEMP_ZIP}`, true);
 
       loader.hide();
-      acode.alert('Success!', 'Ngrok installed successfully!\n\nConfigure with: ngrok config add-authtoken <token>');
+      alert('Success!', 'Ngrok installed successfully!\n\nConfigure with: ngrok config add-authtoken <token>');
     } catch (error) {
       loader.hide();
-      acode.alert('Installation Failed', error.message || error || 'An error occurred during installation.');
+      alert('Installation Failed', String(error) || 'An error occurred during installation.');
     }
   }
 
-  async runNgrok(port = '80') {
+  async runNgrok() {
     try {
       const checkResult = await Executor.execute('which ngrok', true);
       if (!checkResult.includes('ngrok')) {
-        acode.alert('Ngrok not found', 'Please install ngrok first.');
+        alert('Not Found', 'Please install ngrok first.');
         return;
       }
 
-      const customPort = await acode.prompt('Enter port number', port, 'text');
-      if (!customPort) return;
+      const port = await prompt('Enter port number', { default: '80' });
+      if (!port) return;
 
       acode.exec('new-terminal');
       
       setTimeout(() => {
         const terminal = acode.require('terminal');
         if (terminal && terminal.write) {
-          terminal.write(`ngrok http ${customPort}\r`);
+          terminal.write(`ngrok http ${port}\r`);
         }
-      }, 500);
+      }, 1000);
     } catch (error) {
-      acode.alert('Error', error.message || error || 'Failed to run ngrok');
+      alert('Error', String(error) || 'Failed to run ngrok');
     }
   }
 
@@ -107,14 +150,14 @@ class NgrokPlugin {
     try {
       const checkResult = await Executor.execute('which ngrok', true);
       if (!checkResult.includes('ngrok')) {
-        acode.alert('Ngrok not found', 'Please install ngrok first.');
+        alert('Not Found', 'Please install ngrok first.');
         return;
       }
 
       const version = await Executor.execute('ngrok version', true);
-      acode.alert('Ngrok Version', version || 'Unable to get version');
+      alert('Ngrok Version', version || 'Unable to get version');
     } catch (error) {
-      acode.alert('Error', error.message || error || 'Failed to check version');
+      alert('Error', String(error) || 'Failed to check version');
     }
   }
 
@@ -122,28 +165,28 @@ class NgrokPlugin {
     try {
       const checkResult = await Executor.execute('which ngrok', true);
       if (!checkResult.includes('ngrok')) {
-        acode.alert('Ngrok not found', 'Please install ngrok first.');
+        alert('Not Found', 'Please install ngrok first.');
         return;
       }
 
-      const token = await acode.prompt('Enter your ngrok authtoken', '', 'text', {
-        match: /^[\w-]+$/,
-        placeholder: 'Your authtoken from ngrok.com',
+      const token = await prompt('Enter your ngrok authtoken', {
+        placeholder: 'Get token from ngrok.com',
+        required: true,
       });
 
       if (!token) return;
 
       const result = await Executor.execute(`ngrok config add-authtoken ${token}`, true);
-      acode.alert('Configuration Result', result || 'Authtoken configured successfully!');
+      alert('Configuration Result', result || 'Authtoken configured successfully!');
     } catch (error) {
-      acode.alert('Error', error.message || error || 'Failed to configure authtoken');
+      alert('Error', String(error) || 'Failed to configure authtoken');
     }
   }
 
   async uninstallNgrok() {
     try {
-      const confirm = await acode.confirm('Uninstall ngrok?', 'Are you sure you want to uninstall ngrok?');
-      if (!confirm) return;
+      const confirmed = await confirm('Uninstall ngrok?', 'Are you sure you want to uninstall ngrok?');
+      if (!confirmed) return;
 
       const loader = acode.loader('Uninstalling ngrok...', 'Please wait');
       loader.show();
@@ -151,15 +194,19 @@ class NgrokPlugin {
       await Executor.execute(`rm -f ${NGROK_BIN}`, true);
       
       loader.hide();
-      acode.alert('Success', 'Ngrok has been uninstalled.');
+      alert('Success', 'Ngrok has been uninstalled.');
     } catch (error) {
-      loader.hide();
-      acode.alert('Error', error.message || error || 'Failed to uninstall ngrok');
+      alert('Error', String(error) || 'Failed to uninstall ngrok');
     }
   }
 
   destroy() {
     const { commands } = editorManager.editor;
+    commands.removeCommand('ngrok-install');
+    commands.removeCommand('ngrok-run');
+    commands.removeCommand('ngrok-version');
+    commands.removeCommand('ngrok-config');
+    commands.removeCommand('ngrok-uninstall');
     commands.removeCommand('ngrok-menu');
   }
 }
