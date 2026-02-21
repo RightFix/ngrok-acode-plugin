@@ -1,7 +1,7 @@
 import plugin from '../plugin.json';
 
 const NGROK_URL = 'https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-arm64.zip';
-const NGROK_BIN = '/usr/local/bin/ngrok';
+const NGROK_BIN = '/usr/bin/ngrok';
 const TEMP_ZIP = '/tmp/ngrok.zip';
 
 let alert, prompt, confirm, select;
@@ -134,7 +134,7 @@ class NgrokPlugin {
       const term = terminal.create();
       
       setTimeout(() => {
-        terminal.write(term.id, `ngrok http ${port}\n`);
+        terminal.write(term.id, `ngrok ${port}\n`);
       }, 1000);
     } catch (error) {
       alert('Error', String(error));
