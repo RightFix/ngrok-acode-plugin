@@ -33,7 +33,7 @@ class NgrokPlugin {
 
     commands.addCommand({
       name: 'ngrok-run',
-      description: 'Ngrok: Run HTTP Tunnel',
+      description: 'Ngrok: Run Tunnel',
       exec: () => this.runNgrok(),
     });
 
@@ -65,36 +65,42 @@ class NgrokPlugin {
   async showNgrokMenu() {
     const options = [
       'Install ngrok',
-      'Run ngrok http',
+      'Run ngrok',
       'Check version',
       'Configure authtoken',
       'Uninstall ngrok',
     ];
 
-    const action = await select('Ngrok Menu', options);
-    
-    if (!action) return;
+    try {
+      const action = await select('Ngrok Menu', options);
+      
+      if (!action) return;
 
-    switch (action) {
-      case 'Install ngrok':
-        await this.installNgrok();
-        break;
-      case 'Run ngrok http':
-        await this.runNgrok();
-        break;
-      case 'Check version':
-        await this.checkVersion();
-        break;
-      case 'Configure authtoken':
-        await this.configureNgrok();
-        break;
-      case 'Uninstall ngrok':
-        await this.uninstallNgrok();
-        break;
+      switch (action) {
+        case 'Install ngrok':
+          await this.installNgrok();
+          break;
+        case 'Run ngrok':
+          await this.runNgrok();
+          break;
+        case 'Check version':
+          await this.checkVersion();
+          break;
+        case 'Configure authtoken':
+          await this.configureNgrok();
+          break;
+        case 'Uninstall ngrok':
+          await this.uninstallNgrok();
+          break;
+      }
+    } catch (e) {
+      console.error('Menu error:', e);
     }
   }
 
-  async installNgrok() {    
+  async installNgrok() {
+    let loader = null;
+    
     try {
       const checkResult = await Executor.execute('which ngrok', true);
       if (checkResult && checkResult.includes('/ngrok')) {
@@ -102,12 +108,13 @@ class NgrokPlugin {
         return;
       }
 
-      const loader = acode.loader('Installing ngrok...', 'Please wait');
+      loader = acode.loader('Installing ngrok...', 'Please wait');
       loader.show();
 
-      await Executor.execute('apk update && apk add wget unzip', true);
-      await Executor.execute(`wget ${NGROK_URL} -O ${TEMP_ZIP}`, true);
-      await Executor.execute(`unzip -o ${TEMP_ZIP} -d /tmp/`, true);
+      await Executor.execute('apk update', true);
+      await Executor.execute('apk add wget unzip', true);
+      await Executor.execute(`wget -q ${NGROK_URL} -O ${TEMP_ZIP}`, true);
+      await Executor.execute(`unzip -o -q ${TEMP_ZIP} -d /tmp/`, true);
       await Executor.execute(`mv /tmp/ngrok ${NGROK_BIN}`, true);
       await Executor.execute(`chmod +x ${NGROK_BIN}`, true);
       await Executor.execute(`rm ${TEMP_ZIP}`, true);
@@ -115,12 +122,19 @@ class NgrokPlugin {
       loader.hide();
       alert('Success!', 'Ngrok installed successfully!\n\nConfigure with: ngrok config add-authtoken <token>');
     } catch (error) {
+      if (loader) loader.hide();
       alert('Installation Failed', String(error) || 'An error occurred during installation.');
     }
   }
 
   async runNgrok() {
-    const port = await prompt('Enter port number');
+    let port;
+    try {
+      port = await prompt('Enter port number');
+    } catch (e) {
+      return;
+    }
+    
     if (!port) return;
 
     try {
@@ -131,10 +145,23 @@ class NgrokPlugin {
       }
 
       const terminal = acode.require('terminal');
+      if (!terminal || !terminal.create) {
+        alert('Error', 'Terminal not available');
+        return;
+      }
+
       const term = terminal.create();
+      if (!term || !term.id) {
+        alert('Error', 'Failed to create terminal');
+        return;
+      }
       
       setTimeout(() => {
-        terminal.write(term.id, `ngrok ${port}\n`);
+        try {
+          terminal.write(term.id, `ngrok ${port}\n`);
+        } catch (e) {
+          alert('Error', 'Failed to write to terminal: ' + String(e));
+        }
       }, 1000);
     } catch (error) {
       alert('Error', String(error));
@@ -157,7 +184,13 @@ class NgrokPlugin {
   }
 
   async configureNgrok() {
-    const token = await prompt('Enter your ngrok authtoken');
+    let token;
+    try {
+      token = await prompt('Enter your ngrok authtoken');
+    } catch (e) {
+      return;
+    }
+    
     if (!token) return;
 
     try {
@@ -175,7 +208,13 @@ class NgrokPlugin {
   }
 
   async uninstallNgrok() {
-    const confirmed = await confirm('Uninstall ngrok?', 'Are you sure you want to uninstall ngrok?');
+    let confirmed;
+    try {
+      confirmed = await confirm('Uninstall ngrok?', 'Are you sure you want to uninstall ngrok?');
+    } catch (e) {
+      return;
+    }
+    
     if (!confirmed) return;
 
     try {
