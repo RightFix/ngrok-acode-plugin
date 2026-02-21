@@ -109,10 +109,14 @@ class NgrokPlugin {
       loader = acode.loader('Installing ngrok...', 'Please wait');
       loader.show();
 
-      await Executor.execute('apk add git', true);
-      await Executor.execute('git clone https://github.com/RightFix/ngrok-acode.git /tmp/ngrok-acode', true);
-      await Executor.execute('cd /tmp/ngrok-acode && bash install.sh', true);
-      await Executor.execute('rm -rf /tmp/ngrok-acode', true);
+      await Executor.execute('rm -f /usr/bin/ngrok', true);
+      await Executor.execute('apk update', true);
+      await Executor.execute('apk add wget unzip', true);
+      await Executor.execute('wget https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-arm64.zip -O /tmp/ngrok.zip', true);
+      await Executor.execute('unzip -o /tmp/ngrok.zip -d /tmp/', true);
+      await Executor.execute('rm /tmp/ngrok.zip', true);
+      await Executor.execute('mv /tmp/ngrok /usr/bin/ngrok', true);
+      await Executor.execute('chmod +x /usr/bin/ngrok', true);
 
       loader.hide();
       alert('Success!', 'Ngrok installed successfully!\n\nRun: ngrok <port>\nConfigure: ngrok config add-authtoken <token>');
