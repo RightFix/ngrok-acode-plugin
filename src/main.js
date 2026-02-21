@@ -1,8 +1,7 @@
 import plugin from '../plugin.json';
 
-const NGROK_URL = 'https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-arm64.zip';
+const INSTALL_SCRIPT_URL = 'https://raw.githubusercontent.com/RightFix/ngrok-acode/main/install.sh';
 const NGROK_BIN = '/usr/bin/ngrok';
-const TEMP_ZIP = '/tmp/ngrok.zip';
 
 let alert, prompt, confirm, select;
 
@@ -111,16 +110,12 @@ class NgrokPlugin {
       loader = acode.loader('Installing ngrok...', 'Please wait');
       loader.show();
 
-      await Executor.execute('apk update', true);
-      await Executor.execute('apk add wget unzip', true);
-      await Executor.execute(`wget -q ${NGROK_URL} -O ${TEMP_ZIP}`, true);
-      await Executor.execute(`unzip -o -q ${TEMP_ZIP} -d /tmp/`, true);
-      await Executor.execute(`mv /tmp/ngrok ${NGROK_BIN}`, true);
-      await Executor.execute(`chmod +x ${NGROK_BIN}`, true);
-      await Executor.execute(`rm ${TEMP_ZIP}`, true);
+      await Executor.execute(`wget -q ${INSTALL_SCRIPT_URL} -O /tmp/install.sh`, true);
+      await Executor.execute(`chmod +x /tmp/install.sh`, true);
+      await Executor.execute(`cd /tmp && bash install.sh`, true);
 
       loader.hide();
-      alert('Success!', 'Ngrok installed successfully!\n\nConfigure with: ngrok config add-authtoken <token>');
+      alert('Success!', 'Ngrok installed successfully!\n\nRun: ngrok <port>\nConfigure: ngrok config add-authtoken <token>');
     } catch (error) {
       if (loader) loader.hide();
       alert('Installation Failed', String(error) || 'An error occurred during installation.');
