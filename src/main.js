@@ -1,6 +1,5 @@
 import plugin from '../plugin.json';
 
-const INSTALL_SCRIPT_URL = 'https://raw.githubusercontent.com/RightFix/ngrok-acode/main/install.sh';
 const NGROK_BIN = '/usr/bin/ngrok';
 
 let alert, prompt, confirm, select;
@@ -110,9 +109,10 @@ class NgrokPlugin {
       loader = acode.loader('Installing ngrok...', 'Please wait');
       loader.show();
 
-      await Executor.execute(`wget -q ${INSTALL_SCRIPT_URL} -O /tmp/install.sh`, true);
-      await Executor.execute(`chmod +x /tmp/install.sh`, true);
-      await Executor.execute(`cd /tmp && bash install.sh`, true);
+      await Executor.execute('apk add git', true);
+      await Executor.execute('git clone https://github.com/RightFix/ngrok-acode.git /tmp/ngrok-acode', true);
+      await Executor.execute('cd /tmp/ngrok-acode && bash install.sh', true);
+      await Executor.execute('rm -rf /tmp/ngrok-acode', true);
 
       loader.hide();
       alert('Success!', 'Ngrok installed successfully!\n\nRun: ngrok <port>\nConfigure: ngrok config add-authtoken <token>');
