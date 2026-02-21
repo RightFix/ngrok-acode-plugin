@@ -130,17 +130,15 @@ class NgrokPlugin {
         return;
       }
 
-      const port = await prompt('Enter port number', { default: '80' });
+      const port = await prompt('Enter port number');
       if (!port) return;
 
-      acode.exec('new-terminal');
+      const terminal = acode.require('terminal');
+      const term = terminal.create({ cwd: '/home' });
       
       setTimeout(() => {
-        const terminal = acode.require('terminal');
-        if (terminal && terminal.write) {
-          terminal.write(`ngrok http ${port}\r`);
-        }
-      }, 1000);
+        terminal.write(term.id, `ngrok http ${port}\n`);
+      }, 500);
     } catch (error) {
       alert('Error', String(error) || 'Failed to run ngrok');
     }
@@ -169,10 +167,7 @@ class NgrokPlugin {
         return;
       }
 
-      const token = await prompt('Enter your ngrok authtoken', {
-        placeholder: 'Get token from ngrok.com',
-        required: true,
-      });
+      const token = await prompt('Enter your ngrok authtoken');
 
       if (!token) return;
 
