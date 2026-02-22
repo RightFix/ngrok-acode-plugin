@@ -2,7 +2,7 @@ import plugin from '../plugin.json';
 
 const NGROK_BIN = '$HOME/bin/ngrok';
 
-let alert, prompt, confirm, select;
+let alert, prompt, confirm, select, terminal;
 
 class NgrokPlugin {
   baseUrl = '';
@@ -16,7 +16,7 @@ class NgrokPlugin {
     prompt = acode.require('prompt');
     confirm = acode.require('confirm');
     select = acode.require('select');
-
+    terminal = acode.require("terminal")
     this.registerCommands();
   }
 
@@ -96,6 +96,7 @@ class NgrokPlugin {
     }
   }
 
+  
   async installNgrok() {
     try {
       const checkResult = await Executor.execute('which ngrok', true);
@@ -104,19 +105,9 @@ class NgrokPlugin {
         return;
       }
 
-      const terminal = acode.require('terminal');
-      if (!terminal || !terminal.create) {
-        alert('Error', 'Terminal not available');
-        return;
-      }
-
-      const term = terminal.create();
-      
-      const installCmd = 'mkdir -p $HOME/bin && apk update && apk add wget unzip && wget https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-arm64.zip -O /tmp/ngrok.zip && unzip -o /tmp/ngrok.zip -d /tmp/ && rm /tmp/ngrok.zip && mv /tmp/ngrok $HOME/bin/ngrok && chmod +x $HOME/bin/ngrok && export PATH=$HOME/bin:$PATH && echo "Ngrok installed to $HOME/bin/ngrok"';
-      
-      setTimeout(() => {
-        terminal.write(term.id, installCmd + '\n');
-      }, 1000);
+      const term = await terminal.create({name: "Install Ngrok"})
+      await terminal.write(term.id,"apk update && apk upgrade  && apk add wget && wget https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-arm64.tgz -O ngrok.tgz &&  tar xvzf ngrok.tgz && rm ngrok.tgz && mv ngrok ../usr/bin \r\n")
+      alert("Ngrok installing.")
     } catch (error) {
       alert('Error', String(error));
     }
@@ -125,7 +116,7 @@ class NgrokPlugin {
   async runNgrok() {
     let port;
     try {
-      port = await prompt('Enter port number');
+      port = await prompt('Enter port number e.g 8000, 5500');
     } catch (e) {
       return;
     }
@@ -133,17 +124,10 @@ class NgrokPlugin {
     if (!port) return;
 
     try {
-      const terminal = acode.require('terminal');
-      if (!terminal || !terminal.create) {
-        alert('Error', 'Terminal not available');
-        return;
-      }
-
-      const term = terminal.create();
+      const term = await terminal.create({name: "Run Ngrok"})
+      await terminal.write(term.id,`ngrok http ${port}\r\n`)
+      alert('Success', 'Ngrok running succesfully.');
       
-      setTimeout(() => {
-        terminal.write(term.id, `export PATH=$HOME/bin:$PATH && ngrok ${port}\n`);
-      }, 1000);
     } catch (error) {
       alert('Error', String(error));
     }
@@ -187,7 +171,7 @@ class NgrokPlugin {
     if (!confirmed) return;
 
     try {
-      await Executor.execute('rm -f $HOME/bin/ngrok', true);
+      await Executor.execute('cd && rm  ../usr/bin/ngrok', true);
       alert('Success', 'Ngrok has been uninstalled.');
     } catch (error) {
       alert('Error', String(error) || 'Failed to uninstall ngrok');
