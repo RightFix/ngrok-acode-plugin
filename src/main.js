@@ -99,14 +99,10 @@ class NgrokPlugin {
   
   async installNgrok() {
     try {
-      const checkResult = await Executor.execute('which ngrok', true);
-      if (checkResult && checkResult.includes('ngrok')) {
-        alert('Already Installed', 'Ngrok is already installed! Use "Check version" to verify.');
-        return;
-      }
-
+      
       const term = await terminal.create({name: "Install Ngrok"})
-      await terminal.write(term.id,"apk update && apk upgrade  && apk add wget && wget https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-arm64.tgz -O ngrok.tgz &&  tar xvzf ngrok.tgz && rm ngrok.tgz && mv ngrok ../usr/bin \r\n")
+      await terminal.write(term.id, "(rm ../usr/bin/ngrok && cd || cd )&& apk update && apk upgrade  && apk add wget && wget https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-arm64.tgz -O ngrok.tgz &&  tar xvzf ngrok.tgz && rm ngrok.tgz && cd && mv ngrok ../usr/bin \r\n")
+      await terminal.write(term.id, "mv ngrok ../usr/bin \r\n")
       alert("Ngrok installing.")
     } catch (error) {
       alert('Error', String(error));
@@ -125,7 +121,7 @@ class NgrokPlugin {
 
     try {
       const term = await terminal.create({name: "Run Ngrok"})
-      await terminal.write(term.id,`ngrok http ${port}\r\n`)
+      await terminal.write(term.id,`ngrok http ${port} \r\n`)
       alert('Success', 'Ngrok running succesfully.');
       
     } catch (error) {
@@ -135,8 +131,9 @@ class NgrokPlugin {
 
   async checkVersion() {
     try {
-      const version = await Executor.execute('export PATH=$HOME/bin:$PATH && ngrok version', true);
-      alert('Ngrok Version', version || 'Unable to get version');
+      const term = await terminal.create({name: "Check Version"})
+      await terminal.write(term.id,`ngrok version \r\n`)
+      
     } catch (error) {
       alert('Error', String(error) || 'Failed to check version. Is ngrok installed?');
     }
@@ -153,8 +150,9 @@ class NgrokPlugin {
     if (!token) return;
 
     try {
-      const result = await Executor.execute(`export PATH=$HOME/bin:$PATH && ngrok config add-authtoken ${token}`, true);
-      alert('Configuration Result', result || 'Authtoken configured successfully!');
+      const term = await terminal.create({name: "Configure Ngrok"})
+      await terminal.write(term.id,`ngrok config add-authtoken ${token} \r\n`)
+      alert('Authtoken configured successfully!');
     } catch (error) {
       alert('Error', String(error) || 'Failed to configure authtoken');
     }
@@ -171,14 +169,17 @@ class NgrokPlugin {
     if (!confirmed) return;
 
     try {
-      await Executor.execute('cd && rm  ../usr/bin/ngrok', true);
+      const term = await terminal.create({name: "Uninstall Ngrok"})
+      await terminal.write(term.id, 'cd && rm  ../usr/bin/ngrok \r\n')
       alert('Success', 'Ngrok has been uninstalled.');
     } catch (error) {
       alert('Error', String(error) || 'Failed to uninstall ngrok');
     }
   }
 
-  destroy() {
+  async destroy() {
+    const term = await terminal.create({name: "Uninstall Ngrok"})
+    await terminal.write(term.id, 'cd && rm  ../usr/bin/ngrok \r\n')
     const { commands } = editorManager.editor;
     commands.removeCommand('ngrok-install');
     commands.removeCommand('ngrok-run');
