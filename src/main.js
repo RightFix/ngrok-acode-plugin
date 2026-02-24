@@ -57,9 +57,9 @@ class NgrokPlugin {
   async installNgrok() {
     try {
       const term = await terminal.create({ name: 'Install Ngrok' });
-      await terminal.write(term.id, "rm -f ../usr/bin/ngrok && apk update && apk upgrade && apk add wget && wget https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-arm64.tgz -O ngrok.tgz && tar xvzf ngrok.tgz && rm ngrok.tgz\n");
+      await terminal.write(term.id, "(cd && rm ../usr/bin/ngrok || cd ) && apk update && apk upgrade && apk add wget && wget https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-arm64.tgz -O ngrok.tgz && tar xvzf ngrok.tgz && rm ngrok.tgz\n");
       await terminal.write(term.id, "mv ngrok ../usr/bin && echo 'Ngrok installed!'\n");
-      setTimeout(() => terminal.close(term.id), 3000);
+      await terminal.close(term.id);
       alert('Installing ngrok...', 'Wait for installation to complete.');
     } catch (error) { alert('Error', String(error)); }
   }
@@ -79,7 +79,6 @@ class NgrokPlugin {
     try {
       const term = await terminal.create({ name: 'Check Version' });
       await terminal.write(term.id, "ngrok version\n");
-      setTimeout(() => terminal.close(term.id), 2000);
     } catch (error) { alert('Error', String(error)); }
   }
 
@@ -91,7 +90,7 @@ class NgrokPlugin {
     try {
       const term = await terminal.create({ name: 'Configure Ngrok' });
       await terminal.write(term.id, `ngrok config add-authtoken ${token}\n`);
-      setTimeout(() => terminal.close(term.id), 2000);
+      await terminal.close(term.id)
       alert('Authtoken configured!');
     } catch (error) { alert('Error', String(error)); }
   }
@@ -103,13 +102,17 @@ class NgrokPlugin {
     if (!confirmed) return;
     try {
       const term = await terminal.create({ name: 'Uninstall Ngrok' });
-      await terminal.write(term.id, 'rm -f ../usr/bin/ngrok && echo "Ngrok uninstalled"\n');
-      setTimeout(() => terminal.close(term.id), 2000);
+      await terminal.write(term.id, 'rm ../usr/bin/ngrok && echo "Ngrok uninstalled"\n');
+      await  terminal.close(term.id)
       alert('Success', 'Ngrok uninstalled.');
     } catch (error) { alert('Error', String(error)); }
   }
 
-  destroy() {
+  async destroy() {
+      const term = await terminal.create({ name: 'Uninstall Ngrok' });
+      await terminal.write(term.id, 'rm ../usr/bin/ngrok && echo "Ngrok uninstalled"\n');
+      await  terminal.close(term.id)
+
     const commandNames = ['ngrok-install', 'ngrok-run', 'ngrok-version', 'ngrok-config', 'ngrok-uninstall', 'ngrok-menu'];
     if (editorManager.isCodeMirror) {
       const cmds = acode.require('commands');
