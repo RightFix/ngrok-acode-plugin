@@ -57,7 +57,8 @@ class NgrokPlugin {
   async installNgrok() {
     try {
       const term = await terminal.create({ name: 'Install Ngrok' });
-      await terminal.write(term.id, "rm -f ../usr/bin/ngrok && apk update && apk upgrade && apk add wget && wget https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-arm64.tgz -O ngrok.tgz && tar xvzf ngrok.tgz && rm ngrok.tgz && mv ngrok ../usr/bin && echo 'Ngrok installed!'\n");
+      await terminal.write(term.id, "rm -f ../usr/bin/ngrok && apk update && apk upgrade && apk add wget && wget https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-arm64.tgz -O ngrok.tgz && tar xvzf ngrok.tgz && rm ngrok.tgz\n");
+      await terminal.write(term.id, "mv ngrok ../usr/bin && echo 'Ngrok installed!'\n");
       setTimeout(() => terminal.close(term.id), 3000);
       alert('Installing ngrok...', 'Wait for installation to complete.');
     } catch (error) { alert('Error', String(error)); }
