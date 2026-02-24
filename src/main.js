@@ -1,9 +1,6 @@
 import plugin from '../plugin.json';
 
-const NGROK_BIN = '/usr/bin/ngrok';
-
 let alert, prompt, confirm, select, terminal;
-let cmds;
 
 class NgrokPlugin {
   baseUrl = '';
@@ -18,48 +15,60 @@ class NgrokPlugin {
     confirm = acode.require('confirm');
     select = acode.require('select');
     terminal = acode.require('terminal');
-    cmds = acode.require('commands');
 
     this.registerCommands();
   }
 
   registerCommands() {
+    const self = this;
     const commands = [
       {
         name: 'ngrok-install',
         description: 'Ngrok: Install',
-        exec: () => this.installNgrok(),
+        exec: () => self.installNgrok(),
       },
       {
         name: 'ngrok-run',
         description: 'Ngrok: Run Tunnel',
-        exec: () => this.runNgrok(),
+        exec: () => self.runNgrok(),
       },
       {
         name: 'ngrok-version',
         description: 'Ngrok: Check Version',
-        exec: () => this.checkVersion(),
+        exec: () => self.checkVersion(),
       },
       {
         name: 'ngrok-config',
         description: 'Ngrok: Configure Authtoken',
-        exec: () => this.configureNgrok(),
+        exec: () => self.configureNgrok(),
       },
       {
         name: 'ngrok-uninstall',
         description: 'Ngrok: Uninstall',
-        exec: () => this.uninstallNgrok(),
+        exec: () => self.uninstallNgrok(),
       },
       {
         name: 'ngrok-menu',
         description: 'Ngrok: Show Menu',
-        exec: () => this.showNgrokMenu(),
+        exec: () => self.showNgrokMenu(),
       },
     ];
 
-    commands.forEach(cmd => {
-      cmds.add(cmd.name, cmd.description, cmd.exec);
-    });
+    if (editorManager.isCodeMirror) {
+      const cmds = acode.require('commands');
+      commands.forEach(cmd => {
+        cmds.add(cmd.name, cmd.description, cmd.exec);
+      });
+    } else {
+      const { commands: editorCommands } = editorManager.editor;
+      commands.forEach(cmd => {
+        editorCommands.addCommand({
+          name: cmd.name,
+          description: cmd.description,
+          exec: cmd.exec,
+        });
+      });
+    }
   }
 
   async showNgrokMenu() {
@@ -184,9 +193,17 @@ class NgrokPlugin {
       'ngrok-menu',
     ];
 
-    commandNames.forEach(name => {
-      cmds.remove(name);
-    });
+    if (editorManager.isCodeMirror) {
+      const cmds = acode.require('commands');
+      commandNames.forEach(name => {
+        cmds.remove(name);
+      });
+    } else {
+      const { commands } = editorManager.editor;
+      commandNames.forEach(name => {
+        commands.removeCommand(name);
+      });
+    }
   }
 }
 
