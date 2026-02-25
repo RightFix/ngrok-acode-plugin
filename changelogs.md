@@ -8,3 +8,7 @@
 - Check ngrok version
 - Uninstall ngrok
 - Integration with Acode's built-in terminal
+  
+## [1.0.1] - Terminal issues
+
+- Terminal closes after installing, uninstalling or configuration of ngrok  
