@@ -27,6 +27,7 @@ class NgrokPlugin {
       { name: 'ngrok-version', description: 'Ngrok: Check Version', exec: () => self.checkVersion() },
       { name: 'ngrok-config', description: 'Ngrok: Configure Authtoken', exec: () => self.configureNgrok() },
       { name: 'ngrok-uninstall', description: 'Ngrok: Uninstall', exec: () => self.uninstallNgrok() },
+      { name: 'ngrok-update', description: 'Ngrok: Update Ngrok', exec: () => self.updateNgrok() },
       { name: 'ngrok-menu', description: 'Ngrok: Show Menu', exec: () => self.showNgrokMenu() },
     ];
 
@@ -40,7 +41,7 @@ class NgrokPlugin {
   }
 
   async showNgrokMenu() {
-    const options = ['Install ngrok', 'Run ngrok', 'Check version', 'Configure authtoken', 'Uninstall ngrok'];
+    const options = ['Install ngrok', 'Run ngrok', 'Check version', 'Configure authtoken', 'Update ngrok','Uninstall ngrok'];
     try {
       const action = await select('Ngrok Menu', options);
       if (!action) return;
@@ -49,6 +50,7 @@ class NgrokPlugin {
         case 'Run ngrok': await this.runNgrok(); break;
         case 'Check version': await this.checkVersion(); break;
         case 'Configure authtoken': await this.configureNgrok(); break;
+        case 'Update ngrok': await this.updateNgrok(); break;
         case 'Uninstall ngrok': await this.uninstallNgrok(); break;
       }
     } catch (e) { console.error('Menu error:', e); }
@@ -95,7 +97,14 @@ class NgrokPlugin {
       alert('Authtoken configured!');
     } catch (error) { alert('Error', String(error)); }
   }
-
+  async updateNgrok() {
+    try {
+      const term = await terminal.create({ name: 'Update Ngrok' });
+      await terminal.write(term.id, 'ngrok update" \r\n');
+      await terminal.write(term.id, 'exit \r\n');
+      alert('Updating ngrok ...',' Wait for update to be completed.');
+    } catch (error) { alert('Error', String(error)); }
+  }
   async uninstallNgrok() {
     let confirmed;
     try { confirmed = await confirm('Uninstall ngrok?', 'Are you sure?'); }
@@ -114,7 +123,7 @@ class NgrokPlugin {
       await terminal.write(term.id, 'rm ../usr/bin/ngrok && echo "Ngrok uninstalled" \r\n');
       await terminal.write(term.id, 'exit \r\n');
 
-    const commandNames = ['ngrok-install', 'ngrok-run', 'ngrok-version', 'ngrok-config', 'ngrok-uninstall', 'ngrok-menu'];
+    const commandNames = ['ngrok-install', 'ngrok-run', 'ngrok-version', 'ngrok-config', 'ngrok-uninstall', 'ngrok-menu', 'ngrok-update'];
     if (editorManager.isCodeMirror) {
       const cmds = acode.require('commands');
       commandNames.forEach(name => cmds.remove(name));
