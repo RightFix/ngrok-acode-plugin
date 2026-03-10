@@ -11,4 +11,9 @@
   
 ## [1.0.1] - Terminal issues
 
-- Terminal closes after installing, uninstalling or configuration of ngrok  
+- Terminal closes after installing, uninstalling or configuration of ngrok.  
+  
+## [1.1.0] - Update Ngrok
+
+- Users can now update ngrok from the command manu.
+  
