@@ -100,17 +100,6 @@ ngrok-acode/
 - `npm run build` - Build the plugin and create dist.zip
 - `npm run dev` - Development mode with file watching
 
-## Credits
-
-- Original concept: [JesusChapman](https://github.com/JesusChapman)
-- Plugin developed for [Acode](https://acode.app)
-
-## Support
-
-If you find this plugin useful, you can support the development:
-
-- **Ethereum/Polygon/BNB Chain:** `0x9d7ad83f9ea4f7f23e2a8102f0f6a2feaaae1ce0`
-
 ## License
 
-MIT
+AGPL-3.0

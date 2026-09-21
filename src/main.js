@@ -1,27 +1,69 @@
 import plugin from '../plugin.json';
 
-let alert, prompt, confirm, select, terminal;
+let alert, prompt, confirm, select, terminal, toast;
+
+interface AcodeAlert {
+  (title: string, message: string): void;
+}
+interface AcodePrompt {
+  (title: string, message: string): Promise<string | null>;
+}
+interface AcodeConfirm {
+  (title: string, message: string): Promise<boolean>;
+}
+interface AcodeSelect {
+  (title: string, options: string[]): Promise<string | null>;
+}
+interface Terminal { id: string; }
+interface TerminalModule {
+  create(options: { name: string }): Promise<Terminal>;
+  write(id: string, content: string): Promise<void>;
+}
+interface AcodeCommand {
+  name: string;
+  description: string;
+  exec: () => void | Promise<void>;
+}
+interface CommandsModule {
+  addCommand?: (cmd: AcodeCommand) => void;
+  removeCommand?: (name: string) => void;
+  registry?: { add: (cmd: AcodeCommand) => void; remove: (name: string) => void };
+}
+interface AcodeModule {
+  require: (module: string) => unknown;
+  addCommand?: (cmd: AcodeCommand) => void;
+  removeCommand?: (name: string) => void;
+  toast?: (message: string, duration?: number) => void;
+  setPluginInit: (id: string, initFn: (baseUrl: string, $page: unknown, ctx: { cacheFileUrl: string; cacheFile: unknown; firstInit: boolean }) => Promise<void>) => void;
+  setPluginUnmount: (id: string, unmountFn: () => void) => void;
+}
+declare const acode: AcodeModule;
+declare const editorManager: { isCodeMirror: boolean; editor?: { commands: { addCommand: (cmd: AcodeCommand) => void; removeCommand: (name: string) => void } } };
 
 class NgrokPlugin {
-  baseUrl = '';
+  private sideBtn: { show: () => void; hide: () => void } | null = null;
+  private autoInstalled = false;
 
-  async init($page, cacheFile, cacheFileUrl) {
-    this.$page = $page;
-    this.cacheFile = cacheFile;
-    this.cacheFileUrl = cacheFileUrl;
-
-    alert = acode.require('alert');
-    prompt = acode.require('prompt');
-    confirm = acode.require('confirm');
-    select = acode.require('select');
-    terminal = acode.require('terminal');
+  async init(firstInit = false): Promise<void> {
+    alert = acode.require('alert') as AcodeAlert;
+    prompt = acode.require('prompt') as AcodePrompt;
+    confirm = acode.require('confirm') as AcodeConfirm;
+    select = acode.require('select') as AcodeSelect;
+    terminal = acode.require('terminal') as TerminalModule;
+    toast = acode.require('toast') as ((message: string, duration?: number) => void) | undefined;
 
     this.registerCommands();
+
+    if (firstInit) {
+      await this.autoInstall();
+    }
   }
 
-  registerCommands() {
+  registerCommands(): void {
+    if (!editorManager) return;
+
     const self = this;
-    const commands = [
+    const commands: AcodeCommand[] = [
       { name: 'ngrok-install', description: 'Ngrok: Install', exec: () => self.installNgrok() },
       { name: 'ngrok-run', description: 'Ngrok: Run Tunnel', exec: () => self.runNgrok() },
       { name: 'ngrok-version', description: 'Ngrok: Check Version', exec: () => self.checkVersion() },
@@ -31,17 +73,36 @@ class NgrokPlugin {
       { name: 'ngrok-menu', description: 'Ngrok: Show Menu', exec: () => self.showNgrokMenu() },
     ];
 
-    if (editorManager.isCodeMirror) {
-      const cmds = acode.require('commands');
-      commands.forEach(cmd => cmds.add(cmd.name, cmd.description, cmd.exec));
-    } else {
-      const { commands: editorCommands } = editorManager.editor;
-      commands.forEach(cmd => editorCommands.addCommand({ name: cmd.name, description: cmd.description, exec: cmd.exec }));
-    }
+    // Modern Acode (CodeMirror): acode.require('commands').addCommand({name, description, exec})
+    try {
+      const cmds = acode.require('commands') as CommandsModule | null | undefined;
+      if (cmds && typeof cmds.addCommand === 'function') {
+        commands.forEach(cmd => cmds.addCommand!(cmd));
+        return;
+      }
+      if (cmds && cmds.registry && typeof cmds.registry.add === 'function') {
+        commands.forEach(cmd => cmds.registry!.add(cmd));
+        return;
+      }
+    } catch { /* fall through */ }
+
+    try {
+      if (typeof acode.addCommand === 'function') {
+        commands.forEach(cmd => acode.addCommand!(cmd));
+        return;
+      }
+    } catch { /* fall through */ }
+
+    try {
+      const editorCommands = editorManager.editor?.commands;
+      if (editorCommands && typeof editorCommands.addCommand === 'function') {
+        commands.forEach(cmd => editorCommands.addCommand({ name: cmd.name, description: cmd.description, exec: cmd.exec }));
+      }
+    } catch (e) { console.error('Ngrok: command registration failed', e); }
   }
 
   async showNgrokMenu() {
-    const options = ['Install ngrok', 'Run ngrok', 'Check version', 'Configure authtoken', 'Update ngrok','Uninstall ngrok'];
+    const options = ['Install ngrok', 'Run ngrok', 'Check version', 'Configure authtoken', 'Update ngrok', 'Uninstall ngrok'];
     try {
       const action = await select('Ngrok Menu', options);
       if (!action) return;
@@ -55,19 +116,38 @@ class NgrokPlugin {
       }
     } catch (e) { console.error('Menu error:', e); }
   }
-  
-  async installNgrok() {
-    try {
-      const term = await terminal.create({ name: 'Install Ngrok' });
-      await terminal.write(term.id, "(cd && rm ../usr/bin/ngrok || cd ) && apk update && apk upgrade && apk add wget && wget https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-arm64.tgz -O ngrok.tgz && tar xvzf ngrok.tgz && rm ngrok.tgz\n");
-      await terminal.write(term.id, "mv ngrok ../usr/bin \r\n");
-      await terminal.write(term.id, "exit \r\n");
 
-      alert('Installing ngrok...', 'Wait for installation to complete.');
-    } catch (error) { alert('Error', String(error)); }
+  /** Auto-install on first plugin download (ask user first). */
+  private async autoInstall(): Promise<void> {
+    if (this.autoInstalled) return;
+    try {
+      const confirmed = await confirm('Welcome!', 'Ngrok is not installed. Install it now?');
+      if (!confirmed) {
+        toast?.('Ngrok install skipped. Use Ngrok: Install anytime.');
+        return;
+      }
+      const term = await terminal.create({ name: 'Install Ngrok' });
+      await terminal.write(term.id, "apk update && apk add wget && wget https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-arm64.tgz -O ngrok.tgz && tar xvzf ngrok.tgz && mv ngrok /usr/local/bin/ngrok && rm ngrok.tgz\r\n");
+      await terminal.write(term.id, "ngrok version\r\n");
+      await terminal.write(term.id, 'exit \r\n');
+      this.autoInstalled = true;
+      toast?.('Ngrok installed!');
+    } catch (e) {
+      toast?.('Auto-install failed. Use Ngrok: Install manually.');
+    }
   }
 
-  async runNgrok() {
+  async installNgrok(): Promise<void> {
+    try {
+      const term = await terminal.create({ name: 'Install Ngrok' });
+      await terminal.write(term.id, "apk update && apk add wget && wget https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-arm64.tgz -O ngrok.tgz && tar xvzf ngrok.tgz && mv ngrok /usr/local/bin/ngrok && rm ngrok.tgz\r\n");
+      await terminal.write(term.id, "ngrok version\r\n");
+      await terminal.write(term.id, 'exit \r\n');
+      toast?.('Installing ngrok...');
+    } catch (error) { toast?.('Error: ' + String(error)); }
+  }
+
+  async runNgrok(): Promise<void> {
     let port;
     try { port = await prompt('Enter port number e.g 8000, 5500'); }
     catch (e) { return; }
@@ -75,17 +155,17 @@ class NgrokPlugin {
     try {
       const term = await terminal.create({ name: 'Run Ngrok' });
       await terminal.write(term.id, `ngrok http ${port} \r\n`);
-    } catch (error) { alert('Error', String(error)); }
+    } catch (error) { toast?.('Error: ' + String(error)); }
   }
 
-  async checkVersion() {
+  async checkVersion(): Promise<void> {
     try {
       const term = await terminal.create({ name: 'Check Version' });
       await terminal.write(term.id, "ngrok version \r\n");
-    } catch (error) { alert('Error', String(error)); }
+    } catch (error) { toast?.('Error: ' + String(error)); }
   }
 
-  async configureNgrok() {
+  async configureNgrok(): Promise<void> {
     let token;
     try { token = await prompt('Enter your ngrok authtoken'); }
     catch (e) { return; }
@@ -93,53 +173,75 @@ class NgrokPlugin {
     try {
       const term = await terminal.create({ name: 'Configure Ngrok' });
       await terminal.write(term.id, `ngrok config add-authtoken ${token} \r\n`);
-      await terminal.write(term.id, " exit \r\n");
-      alert('Authtoken configured!');
-    } catch (error) { alert('Error', String(error)); }
+      await terminal.write(term.id, 'exit \r\n');
+      toast?.('Authtoken configured!');
+    } catch (error) { toast?.('Error: ' + String(error)); }
   }
-  async updateNgrok() {
+
+  async updateNgrok(): Promise<void> {
     try {
       const term = await terminal.create({ name: 'Update Ngrok' });
-      await terminal.write(term.id, 'ngrok update" \r\n');
+      await terminal.write(term.id, 'ngrok update \r\n');
       await terminal.write(term.id, 'exit \r\n');
-      alert('Updating ngrok ...',' Wait for update to be completed.');
-    } catch (error) { alert('Error', String(error)); }
+      toast?.('Updating ngrok...');
+    } catch (error) { toast?.('Error: ' + String(error)); }
   }
-  async uninstallNgrok() {
+
+  async uninstallNgrok(): Promise<void> {
     let confirmed;
     try { confirmed = await confirm('Uninstall ngrok?', 'Are you sure?'); }
     catch (e) { return; }
     if (!confirmed) return;
     try {
       const term = await terminal.create({ name: 'Uninstall Ngrok' });
-      await terminal.write(term.id, 'rm ../usr/bin/ngrok && echo "Ngrok uninstalled" \r\n');
+      await terminal.write(term.id, 'rm /usr/local/bin/ngrok && echo "Ngrok uninstalled" \r\n');
       await terminal.write(term.id, 'exit \r\n');
-      alert('Success', 'Ngrok uninstalled.');
-    } catch (error) { alert('Error', String(error)); }
+      toast?.('Ngrok uninstalled.');
+    } catch (error) { toast?.('Error: ' + String(error)); }
   }
 
-  async destroy() {
-      const term = await terminal.create({ name: 'Uninstall Ngrok' });
-      await terminal.write(term.id, 'rm ../usr/bin/ngrok && echo "Ngrok uninstalled" \r\n');
-      await terminal.write(term.id, 'exit \r\n');
+  async destroy(): Promise<void> {
+    if (this.sideBtn) {
+      this.sideBtn.hide();
+      this.sideBtn = null;
+    }
+
+    if (!editorManager) return;
 
     const commandNames = ['ngrok-install', 'ngrok-run', 'ngrok-version', 'ngrok-config', 'ngrok-uninstall', 'ngrok-menu', 'ngrok-update'];
-    if (editorManager.isCodeMirror) {
-      const cmds = acode.require('commands');
-      commandNames.forEach(name => cmds.remove(name));
-    } else {
-      const { commands } = editorManager.editor;
-      commandNames.forEach(name => commands.removeCommand(name));
-    }
+
+    try {
+      const cmds = acode.require('commands') as CommandsModule | null | undefined;
+      if (cmds && typeof cmds.removeCommand === 'function') {
+        commandNames.forEach(name => cmds.removeCommand!(name));
+        return;
+      }
+      if (cmds && cmds.registry && typeof cmds.registry.remove === 'function') {
+        commandNames.forEach(name => cmds.registry!.remove(name));
+        return;
+      }
+    } catch { /* fall through */ }
+
+    try {
+      if (typeof acode.removeCommand === 'function') {
+        commandNames.forEach(name => acode.removeCommand!(name));
+        return;
+      }
+    } catch { /* fall through */ }
+
+    try {
+      const editorCommands = editorManager.editor?.commands;
+      if (editorCommands && typeof editorCommands.removeCommand === 'function') {
+        commandNames.forEach(name => editorCommands.removeCommand(name));
+      }
+    } catch (e) { console.error('Ngrok: command removal failed', e); }
   }
 }
 
 if (window.acode) {
   const ngrokPlugin = new NgrokPlugin();
-  acode.setPluginInit(plugin.id, async (baseUrl, $page, { cacheFileUrl, cacheFile }) => {
-    if (!baseUrl.endsWith('/')) baseUrl += '/';
-    ngrokPlugin.baseUrl = baseUrl;
-    await ngrokPlugin.init($page, cacheFile, cacheFileUrl);
+  acode.setPluginInit(plugin.id, async (_baseUrl: string, $page: unknown, { cacheFileUrl, cacheFile, firstInit }: { cacheFileUrl: string; cacheFile: unknown; firstInit: boolean }) => {
+    ngrokPlugin.init(firstInit);
   });
   acode.setPluginUnmount(plugin.id, () => ngrokPlugin.destroy());
 }

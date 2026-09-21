@@ -31,6 +31,8 @@ async function createZip() {
     'plugin.json',
     'main.js',
     'readme.md',
+    'changelog.md',
+    'LICENSE',
     'icon.png',
   ];
 
