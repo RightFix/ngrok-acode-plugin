@@ -2,7 +2,7 @@
   "name": "ngrok-acode",
   "version": "2.0.1",
   "description": "Install and manage ngrok on Acode mobile editor",
-  "main": "src/main.js",
+  "main": "src/main.ts",
   "repository": "https://github.com/RightFix/ngrok-acode.git",
   "author": "RightFix",
   "license": "AGPL-3.0",
@@ -12,10 +12,12 @@
   },
   "devDependencies": {
     "esbuild": "^0.25.8",
-    "jszip": "^3.10.1"
+    "jszip": "^3.10.1",
+    "typescript": "^6.0.3"
   },
   "scripts": {
     "dev": "node esbuild.config.mjs --serve",
-    "build": "node esbuild.config.mjs"
+    "build": "node esbuild.config.mjs",
+    "typecheck": "tsc --noEmit"
   }
 }

@@ -1,12 +1,10 @@
 import plugin from '../plugin.json';
 
-let alert, prompt, confirm, select, terminal, toast;
-
 interface AcodeAlert {
   (title: string, message: string): void;
 }
 interface AcodePrompt {
-  (title: string, message: string): Promise<string | null>;
+  (title: string, message?: string): Promise<string | null>;
 }
 interface AcodeConfirm {
   (title: string, message: string): Promise<boolean>;
@@ -37,14 +35,32 @@ interface AcodeModule {
   setPluginInit: (id: string, initFn: (baseUrl: string, $page: unknown, ctx: { cacheFileUrl: string; cacheFile: unknown; firstInit: boolean }) => Promise<void>) => void;
   setPluginUnmount: (id: string, unmountFn: () => void) => void;
 }
-declare const acode: AcodeModule;
-declare const editorManager: { isCodeMirror: boolean; editor?: { commands: { addCommand: (cmd: AcodeCommand) => void; removeCommand: (name: string) => void } } };
+interface SideButtonOptions {
+  text: string;
+  icon: string;
+  onclick: () => void | Promise<void>;
+  backgroundColor?: string;
+  textColor?: string;
+}
+interface SideButton { show: () => void; hide: () => void }
+
+let acode!: AcodeModule;
+let editorManager!: { isCodeMirror: boolean; editor?: { commands: { addCommand: (cmd: AcodeCommand) => void; removeCommand: (name: string) => void } } };
+let alert!: AcodeAlert;
+let prompt!: AcodePrompt;
+let confirm!: AcodeConfirm;
+let select!: AcodeSelect;
+let terminal!: TerminalModule;
+let toast: ((message: string, duration?: number) => void) | undefined;
 
 class NgrokPlugin {
-  private sideBtn: { show: () => void; hide: () => void } | null = null;
+  private sideBtn: SideButton | null = null;
   private autoInstalled = false;
 
   async init(firstInit = false): Promise<void> {
+    const win = window as Window & { acode?: AcodeModule; editorManager?: { isCodeMirror: boolean; editor?: { commands: { addCommand: (cmd: AcodeCommand) => void; removeCommand: (name: string) => void } } } };
+    acode = win.acode as AcodeModule;
+    editorManager = win.editorManager as { isCodeMirror: boolean; editor?: { commands: { addCommand: (cmd: AcodeCommand) => void; removeCommand: (name: string) => void } } };
     alert = acode.require('alert') as AcodeAlert;
     prompt = acode.require('prompt') as AcodePrompt;
     confirm = acode.require('confirm') as AcodeConfirm;
@@ -148,7 +164,7 @@ class NgrokPlugin {
   }
 
   async runNgrok(): Promise<void> {
-    let port;
+    let port: string | null;
     try { port = await prompt('Enter port number e.g 8000, 5500'); }
     catch (e) { return; }
     if (!port) return;
@@ -166,7 +182,7 @@ class NgrokPlugin {
   }
 
   async configureNgrok(): Promise<void> {
-    let token;
+    let token: string | null;
     try { token = await prompt('Enter your ngrok authtoken'); }
     catch (e) { return; }
     if (!token) return;
@@ -188,7 +204,7 @@ class NgrokPlugin {
   }
 
   async uninstallNgrok(): Promise<void> {
-    let confirmed;
+    let confirmed: boolean;
     try { confirmed = await confirm('Uninstall ngrok?', 'Are you sure?'); }
     catch (e) { return; }
     if (!confirmed) return;
@@ -238,10 +254,12 @@ class NgrokPlugin {
   }
 }
 
-if (window.acode) {
+if ((window as Window & { acode?: AcodeModule }).acode) {
   const ngrokPlugin = new NgrokPlugin();
   acode.setPluginInit(plugin.id, async (_baseUrl: string, $page: unknown, { cacheFileUrl, cacheFile, firstInit }: { cacheFileUrl: string; cacheFile: unknown; firstInit: boolean }) => {
     ngrokPlugin.init(firstInit);
   });
   acode.setPluginUnmount(plugin.id, () => ngrokPlugin.destroy());
 }
+
+export {};
